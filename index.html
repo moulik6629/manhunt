@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>HOSTEL MANHUNT // Tactical Campus Lockdown</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Top HUD Header -->
+    <header class="hud-header">
+      <div class="hud-logo">
+        <div class="radar-icon-spin">📡</div>
+        <div class="brand-text">
+          <h1>CAMPUS MANHUNT</h1>
+          <div class="brand-sub">TACTICAL INFECTION // HOSTEL LOCKDOWN</div>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" id="btnTestSound" onclick="soundEngine.playRadarPing()">🔊 SFX</button>
+    </header>
+
+    <!-- Network Info / Share Banner -->
+    <div class="card" id="networkCard" style="display:none; border-color: rgba(0,242,254,0.4); background: rgba(0, 242, 254, 0.05);">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="overflow:hidden; margin-right:8px;">
+          <div id="netLabel" style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">ONLINE JOIN LINK (4G/5G MOBILE DATA & ANY WI-FI):</div>
+          <div id="lanUrlText" style="font-family:var(--font-mono); font-weight:bold; color:var(--accent-cyan); font-size:0.95rem; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;"></div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-cyan btn-sm" onclick="copyOnlineLink()">📋 COPY</button>
+          <button class="btn btn-outline btn-sm" onclick="showHostQR()">📱 QR</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode Tabs: Host vs Join -->
+    <div class="tabs">
+      <button class="tab-btn active" id="tabJoin" onclick="switchTab('join')">⚡ JOIN HUNT</button>
+      <button class="tab-btn" id="tabHost" onclick="switchTab('host')">👑 HOST MATCH</button>
+    </div>
+
+    <!-- 1. JOIN MATCH PANEL -->
+    <div id="joinPanel" class="card">
+      <div style="font-size:0.8rem; letter-spacing:1.5px; color:var(--accent-cyan); font-family:var(--font-mono); margin-bottom:12px;">
+        // DEPLOY TO ACTIVE SESSION
+      </div>
+
+      <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">ROOM CODE (e.g. HUNT402)</label>
+      <input type="text" id="joinRoomCode" class="input-field" placeholder="HUNT___" style="text-transform:uppercase; font-family:var(--font-mono); font-size:1.3rem; letter-spacing:4px; font-weight:bold;">
+
+      <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">CALLSIGN / NICKNAME</label>
+      <input type="text" id="joinPlayerName" class="input-field" placeholder="Enter your callsign..." maxlength="15">
+
+      <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">TACTICAL AVATAR</label>
+      <div class="sector-pills" id="avatarPicker" style="margin-bottom:12px;">
+        <span class="sector-pill active" onclick="pickAvatar('🥷', this)">🥷 Ninja</span>
+        <span class="sector-pill" onclick="pickAvatar('⚡', this)">⚡ Flash</span>
+        <span class="sector-pill" onclick="pickAvatar('🐺', this)">🐺 Wolf</span>
+        <span class="sector-pill" onclick="pickAvatar('🦇', this)">🦇 Bat</span>
+        <span class="sector-pill" onclick="pickAvatar('🎯', this)">🎯 Sniper</span>
+        <span class="sector-pill" onclick="pickAvatar('💀', this)">💀 Reaper</span>
+        <span class="sector-pill" onclick="pickAvatar('🐅', this)">🐅 Tiger</span>
+        <span class="sector-pill" onclick="pickAvatar('👻', this)">👻 Ghost</span>
+      </div>
+
+      <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">STARTING SECTOR</label>
+      <select id="joinSector" class="input-field">
+        <option value="Hostel Quad">Hostel Quad / Courtyard</option>
+        <option value="Block A Ground">Block A - Ground Floor</option>
+        <option value="Block A 1st Floor">Block A - 1st Floor</option>
+        <option value="Block B Ground">Block B - Ground Floor</option>
+        <option value="Block B 2nd Floor">Block B - 2nd Floor</option>
+        <option value="Hostel Mess">Hostel Mess / Dining</option>
+        <option value="Main Gate">Main Gate / Guard Post</option>
+        <option value="Campus Ground">Open Grounds / Sports Field</option>
+        <option value="Terrace / Rooftop">Terrace / Rooftop</option>
+      </select>
+
+      <button class="btn btn-cyan" onclick="submitJoinRoom()" style="margin-top:10px;">
+        🚀 ENTER THE FIELD
+      </button>
+    </div>
+
+    <!-- 2. HOST NEW MATCH PANEL -->
+    <div id="hostPanel" class="card" style="display:none;">
+      <div style="font-size:0.8rem; letter-spacing:1.5px; color:var(--accent-amber); font-family:var(--font-mono); margin-bottom:12px;">
+        // CREATE NEW MANHUNT LOBBY
+      </div>
+
+      <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">HOST CALLSIGN</label>
+      <input type="text" id="hostPlayerName" class="input-field" placeholder="Host Nickname..." maxlength="15">
+
+      <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">OPERATION TITLE</label>
+      <input type="text" id="hostRoomName" class="input-field" value="Hostel Campus Lockdown">
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); display:flex; justify-content:space-between;">
+          <span>MATCH DURATION:</span> <b id="valDuration" style="color:var(--accent-cyan);">30 Mins</b>
+        </label>
+        <input type="range" class="range-slider" id="sliderDuration" min="10" max="60" step="5" value="30" oninput="document.getElementById('valDuration').innerText = this.value + ' Mins'">
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); display:flex; justify-content:space-between;">
+          <span>RUNNER HEAD START:</span> <b id="valHeadstart" style="color:var(--accent-cyan);">90 Seconds</b>
+        </label>
+        <input type="range" class="range-slider" id="sliderHeadstart" min="30" max="240" step="15" value="90" oninput="document.getElementById('valHeadstart').innerText = this.value + ' Seconds'">
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); display:flex; justify-content:space-between;">
+          <span>RADAR PULSE INTERVAL:</span> <b id="valRadar" style="color:var(--accent-cyan);">Every 3 Mins</b>
+        </label>
+        <input type="range" class="range-slider" id="sliderRadar" min="1" max="10" step="1" value="3" oninput="document.getElementById('valRadar').innerText = 'Every ' + this.value + ' Mins'">
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); display:flex; justify-content:space-between;">
+          <span>INITIAL HUNTERS:</span> <b id="valHunters" style="color:var(--accent-red);">1 Hunter</b>
+        </label>
+        <input type="range" class="range-slider" id="sliderHunters" min="1" max="5" step="1" value="1" oninput="document.getElementById('valHunters').innerText = this.value + (this.value == 1 ? ' Hunter' : ' Hunters')">
+      </div>
+
+      <button class="btn btn-green" onclick="submitCreateRoom()" style="margin-top:10px;">
+        👑 INITIALIZE LOBBY
+      </button>
+    </div>
+
+    <!-- Gameplay Rules Card -->
+    <div class="card" style="font-size:0.8rem; line-height:1.6; color:var(--text-dim);">
+      <div style="font-weight:bold; color:#fff; margin-bottom:6px; letter-spacing:1px;">📋 HOSTEL MANHUNT RULES:</div>
+      <ul style="padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+        <li><b style="color:var(--accent-cyan);">Head Start:</b> When the host starts the match, runners have 90s to scatter across campus while hunters are blinded.</li>
+        <li><b style="color:var(--accent-cyan);">Secret PIN & QR:</b> Every runner has a secret 4-digit code. When a hunter tags you, they enter your code (or scan your QR) to confirm the tag!</li>
+        <li><b style="color:var(--accent-red);">Infection Protocol:</b> Once tagged, runners immediately turn into HUNTERS and hunt down remaining survivors!</li>
+        <li><b style="color:var(--accent-amber);">Satellite Radar Sweeps:</b> Periodic radar pulses reveal runners' GPS blips for 20 seconds. Keep moving!</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- QR Share Modal -->
+  <div class="modal-overlay" id="qrModal" style="display:none;" onclick="hideHostQR()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3 style="color:var(--accent-cyan); letter-spacing:2px; margin-bottom:8px;">SCAN TO JOIN WI-FI HUNT</h3>
+      <div style="font-size:0.8rem; color:var(--text-dim); margin-bottom:16px;">Make sure your friends are connected to the same hostel Wi-Fi or mobile hotspot.</div>
+      <div id="hostQrContainer" style="display:inline-block; padding:12px; background:#fff; border-radius:12px; margin-bottom:16px;"></div>
+      <button class="btn btn-outline" onclick="hideHostQR()">CLOSE</button>
+    </div>
+  </div>
+
+  <script src="/static/js/sound.js"></script>
+  <script src="/static/js/qr-helper.js"></script>
+  <script>
+    let selectedAvatar = '🥷';
+
+    function pickAvatar(emoji, el) {
+      selectedAvatar = emoji;
+      document.querySelectorAll('#avatarPicker .sector-pill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tabJoin').classList.toggle('active', tab === 'join');
+      document.getElementById('tabHost').classList.toggle('active', tab === 'host');
+      document.getElementById('joinPanel').style.display = tab === 'join' ? 'block' : 'none';
+      document.getElementById('hostPanel').style.display = tab === 'host' ? 'block' : 'none';
+    }
+
+    // Check for room code in URL query string
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('room')) {
+      document.getElementById('joinRoomCode').value = urlParams.get('room');
+    }
+
+    // Fetch local & public network server IP info
+    let serverInfo = null;
+    fetch('/api/info')
+      .then(res => res.json())
+      .then(data => {
+        serverInfo = data;
+        const targetUrl = data.public_url || data.join_url;
+        if (targetUrl) {
+          document.getElementById('networkCard').style.display = 'block';
+          document.getElementById('lanUrlText').innerText = targetUrl;
+          if (data.public_url) {
+            document.getElementById('netLabel').innerText = 'ONLINE LINK (4G/5G MOBILE DATA & ANY WI-FI):';
+          }
+        }
+      })
+      .catch(console.warn);
+
+    function copyOnlineLink() {
+      if (!serverInfo) return;
+      const targetUrl = serverInfo.public_url || serverInfo.join_url;
+      navigator.clipboard.writeText(targetUrl).then(() => {
+        alert("Public Game Link copied! Send it to your hostel WhatsApp group!");
+      }).catch(() => {
+        prompt("Copy this game link:", targetUrl);
+      });
+    }
+
+    function showHostQR() {
+      if (!serverInfo) return;
+      const targetUrl = serverInfo.public_url || serverInfo.join_url;
+      document.getElementById('qrModal').style.display = 'flex';
+      qrHelper.renderQR('hostQrContainer', targetUrl, 200);
+    }
+
+    function hideHostQR() {
+      document.getElementById('qrModal').style.display = 'none';
+    }
+
+    async function submitCreateRoom() {
+      const hostName = document.getElementById('hostPlayerName').value.trim() || 'Commander';
+      const roomName = document.getElementById('hostRoomName').value.trim() || 'Hostel Manhunt';
+      const duration = parseInt(document.getElementById('sliderDuration').value);
+      const headstart = parseInt(document.getElementById('sliderHeadstart').value);
+      const radar = parseInt(document.getElementById('sliderRadar').value);
+      const hunters = parseInt(document.getElementById('sliderHunters').value);
+
+      try {
+        const res = await fetch('/api/rooms/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: roomName,
+            host_name: hostName,
+            duration_minutes: duration,
+            head_start_seconds: headstart,
+            radar_interval_minutes: radar,
+            initial_hunters: hunters
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.location.href = `/game?room=${data.room_code}&pid=${data.host_id}&name=${encodeURIComponent(hostName)}`;
+        } else {
+          alert(data.detail || 'Failed to create room.');
+        }
+      } catch (e) {
+        alert('Server connection error.');
+      }
+    }
+
+    async function submitJoinRoom() {
+      const roomCode = document.getElementById('joinRoomCode').value.trim();
+      const playerName = document.getElementById('joinPlayerName').value.trim();
+      const sector = document.getElementById('joinSector').value;
+
+      if (!roomCode) {
+        alert('Please enter a Room Code!');
+        return;
+      }
+      if (!playerName) {
+        alert('Please enter your Callsign/Nickname!');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/rooms/join', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room_code: roomCode,
+            player_name: playerName,
+            avatar: selectedAvatar,
+            sector: sector
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          window.location.href = `/game?room=${data.room_code}&pid=${data.player_id}&name=${encodeURIComponent(playerName)}`;
+        } else {
+          alert(data.detail || 'Could not join room.');
+        }
+      } catch (e) {
+        alert('Server connection error.');
+      }
+    }
+  </script>
+</body>
+</html>

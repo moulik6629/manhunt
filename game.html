@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ACTIVE HUNT // Hostel Lockdown HUD</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  
+  <!-- Leaflet Maps CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- QRCode & HTML5 QR Scanner -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+  <div class="container" id="mainApp">
+
+    <!-- Top HUD Header -->
+    <header class="hud-header">
+      <div class="hud-logo">
+        <div id="roleAvatar" style="font-size: 24px;">🏃</div>
+        <div class="brand-text">
+          <h1 id="hudTitle">MANHUNT</h1>
+          <div class="brand-sub" id="roomCodeDisplay">ROOM: ----</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="badge badge-cyan" id="roleBadge">RUNNER</span>
+        <button class="btn btn-outline btn-sm" id="btnAudioToggle" onclick="toggleMuteAudio()">🔊</button>
+      </div>
+    </header>
+
+    <!-- Global Broadcast Ticker -->
+    <div id="hostAlertBar" style="display:none; padding:8px 12px; background:rgba(255,42,95,0.2); border:1px solid var(--accent-red); border-radius:10px; margin-bottom:12px; font-size:0.85rem; font-family:var(--font-mono); color:#fff; text-align:center;">
+    </div>
+
+    <!-- Out of Playzone Warning Banner -->
+    <div id="zoneWarningBanner" style="display:none; padding:10px 14px; background:rgba(255,0,85,0.25); border:2px solid var(--accent-red); border-radius:12px; margin-bottom:12px; text-align:center; animation: pulse-danger 0.8s infinite alternate;">
+      <div style="font-weight:900; color:#fff; font-size:0.95rem; letter-spacing:1px;">⚠️ OUTSIDE THE SAFE PLAYZONE!</div>
+      <div style="font-size:0.8rem; color:#fff; margin-top:2px;">Your position is EXPOSED to Hunters! Fall back inside the circle!</div>
+    </div>
+
+    <!-- ==================== 1. LOBBY VIEW ==================== -->
+    <div id="viewLobby" style="display:none;">
+      <div class="card" style="text-align:center; padding:24px 16px;">
+        <div style="font-size:0.8rem; letter-spacing:2px; color:var(--text-dim); font-family:var(--font-mono);">INVITE HOSTEL SQUAD</div>
+        <div id="lobbyRoomBig" style="font-size:2.8rem; font-family:var(--font-mono); font-weight:900; letter-spacing:6px; color:var(--accent-cyan); margin:8px 0;">----</div>
+        <div style="display:flex; gap:8px; justify-content:center; margin-bottom:16px;">
+          <button class="btn btn-outline btn-sm" onclick="copyJoinLink()">📋 COPY LINK</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleLobbyQr()">📱 SHOW QR</button>
+        </div>
+        <div id="lobbyQrContainer" style="display:none; padding:12px; background:#fff; border-radius:12px; margin: 0 auto 16px auto; width: fit-content;"></div>
+        <div style="font-size:0.85rem; color:var(--text-dim);" id="lobbyWaitingMsg">Waiting for host to launch the hunt...</div>
+      </div>
+
+      <!-- Squad Roster Card -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-size:0.8rem; letter-spacing:1.5px; color:var(--text-dim); font-family:var(--font-mono);">
+            SQUAD ROSTER (<span id="playerCount">0</span>)
+          </div>
+          <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">Tap role to switch</span>
+        </div>
+        <div class="roster-grid" id="lobbyRosterGrid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Host Launch Controls -->
+      <div id="hostLobbyControls" class="card" style="display:none;">
+        <button class="btn btn-green" onclick="launchGame()" style="font-size:1.1rem; padding:16px;">
+          🚀 LAUNCH MANHUNT
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== 2. HEAD START VIEW ==================== -->
+    <div id="viewHeadStart" style="display:none;">
+      <div class="card pin-hero-card" id="headstartCard">
+        <div style="font-size:1rem; letter-spacing:3px; color:var(--accent-amber); font-family:var(--font-mono); margin-bottom:8px;">
+          ⚠️ SCATTERING PROTOCOL ACTIVE
+        </div>
+        <div id="headstartTimerBig" style="font-size:4rem; font-family:var(--font-mono); font-weight:900; color:#fff; text-shadow:0 0 30px rgba(255,183,3,0.8);">
+          00:00
+        </div>
+        <div id="headstartMessage" style="font-size:0.95rem; color:var(--text-main); margin-top:10px;">
+          Runners, scatter and take cover across campus! Hunters are locked!
+        </div>
+      </div>
+
+      <!-- Runner Quick PIN Reminder during head start -->
+      <div id="headstartRunnerPinBox" class="card" style="text-align:center;">
+        <div style="font-size:0.75rem; color:var(--accent-cyan); font-family:var(--font-mono);">YOUR SECRET KILL PIN:</div>
+        <div id="headstartPinDigits" style="font-size:2.5rem; font-family:var(--font-mono); font-weight:bold; letter-spacing:8px; color:#fff;">----</div>
+        <div style="font-size:0.8rem; color:var(--text-dim);">Keep this safe. Hunters must obtain this code to eliminate you!</div>
+      </div>
+    </div>
+
+    <!-- ==================== 3. ACTIVE HUNT VIEW ==================== -->
+    <div id="viewActive" style="display:none;">
+      
+      <!-- Top Tactical Telemetry Bar -->
+      <div class="card" style="padding:10px 14px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:0.65rem; color:var(--text-dim); font-family:var(--font-mono);">MATCH TIME LEFT:</div>
+            <div id="gameTimer" style="font-family:var(--font-mono); font-weight:bold; font-size:1.3rem; color:#fff;">--:--</div>
+          </div>
+          <div>
+            <div style="font-size:0.65rem; color:var(--text-dim); font-family:var(--font-mono);">SAFE ZONE:</div>
+            <div id="playzoneDisplay" style="font-family:var(--font-mono); font-weight:bold; font-size:1.3rem; color:var(--accent-amber);">350m</div>
+          </div>
+          <div>
+            <div style="font-size:0.65rem; color:var(--text-dim); font-family:var(--font-mono);">SURVIVORS:</div>
+            <div id="runnersCountDisplay" style="font-family:var(--font-mono); font-weight:bold; font-size:1.3rem; color:var(--accent-cyan);">--</div>
+          </div>
+          <div>
+            <div style="font-size:0.65rem; color:var(--text-dim); font-family:var(--font-mono);">HUNTERS:</div>
+            <div id="huntersCountDisplay" style="font-family:var(--font-mono); font-weight:bold; font-size:1.3rem; color:var(--accent-red);">--</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Radar Pulse Status Bar -->
+      <div class="radar-pulse-bar" id="radarPulseBanner">
+        <span id="radarPulseText">📡 NEXT SATELLITE SWEEP IN: --:--</span>
+        <span class="badge badge-amber" id="radarPulseBadge">PASSIVE</span>
+      </div>
+
+      <!-- RUNNER HUD: PIN & QR Card -->
+      <div id="runnerHudBox" class="card pin-hero-card">
+        <div class="pin-label">YOUR SECRET KILL CODE</div>
+        <div class="pin-digits" id="mySecretPin">----</div>
+        <div class="pin-hint">If caught by a hunter, reveal this code or show your QR.</div>
+        <div style="display:flex; gap:8px; margin-top:14px;">
+          <button class="btn btn-cyan btn-sm" onclick="showRunnerQrModal()" style="flex:1;">📱 SHOW QR</button>
+          <button class="btn btn-outline btn-sm" onclick="showSurrenderModal()" style="flex:1;">🏳️ SURRENDER</button>
+        </div>
+      </div>
+
+      <!-- HUNTER HUD: Eliminate Runner Card -->
+      <div id="hunterHudBox" class="card hunter-action-card" style="display:none;">
+        <div class="hunter-title">
+          <span>💀 ELIMINATE TARGET</span>
+          <button class="btn btn-outline btn-sm" onclick="triggerManualRadar()" style="margin-left:auto; font-size:0.75rem;">📡 RADAR PING</button>
+        </div>
+
+        <!-- PIN Screen Display -->
+        <div class="pin-input-screen" id="hunterPinInput">____</div>
+
+        <!-- Numerical Keypad -->
+        <div class="keypad-grid">
+          <button class="keypad-btn" onclick="pressKey('1')">1</button>
+          <button class="keypad-btn" onclick="pressKey('2')">2</button>
+          <button class="keypad-btn" onclick="pressKey('3')">3</button>
+          <button class="keypad-btn" onclick="pressKey('4')">4</button>
+          <button class="keypad-btn" onclick="pressKey('5')">5</button>
+          <button class="keypad-btn" onclick="pressKey('6')">6</button>
+          <button class="keypad-btn" onclick="pressKey('7')">7</button>
+          <button class="keypad-btn" onclick="pressKey('8')">8</button>
+          <button class="keypad-btn" onclick="pressKey('9')">9</button>
+          <button class="keypad-btn" style="color:var(--text-dim);" onclick="pressKey('C')">⌫</button>
+          <button class="keypad-btn" onclick="pressKey('0')">0</button>
+          <button class="keypad-btn" style="color:var(--accent-red);" onclick="submitHunterPin()">✓</button>
+        </div>
+
+        <button class="btn btn-red" onclick="openCameraScanner()" style="margin-top:4px;">
+          📷 SCAN RUNNER QR CODE
+        </button>
+        <button class="btn btn-outline" style="border-color:rgba(255,42,95,0.6); color:#fff; margin-top:8px; font-size:0.8rem;" onclick="openClaimTagModal()">
+          🚩 RUNNER REFUSES SCREEN? CLAIM TAG
+        </button>
+      </div>
+
+      <!-- TACTICAL CAMPUS RADAR MAP -->
+      <div class="card" style="padding:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-size:0.8rem; letter-spacing:1.5px; color:var(--text-dim); font-family:var(--font-mono);">
+            TACTICAL MAP & RADAR
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="tacticalRadar.centerOnUser()">🎯 CENTER</button>
+        </div>
+        <div class="map-container">
+          <div id="campusMap"></div>
+        </div>
+
+        <!-- Quick Sector Switcher (for indoor/GPS drift) -->
+        <div style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">
+          UPDATE CURRENT SECTOR:
+        </div>
+        <div class="sector-pills" id="activeSectorPills">
+          <span class="sector-pill" onclick="updateMySector('Block A Ground', this)">Block A Grd</span>
+          <span class="sector-pill" onclick="updateMySector('Block A 1st Flr', this)">Block A 1st</span>
+          <span class="sector-pill" onclick="updateMySector('Block B Ground', this)">Block B Grd</span>
+          <span class="sector-pill" onclick="updateMySector('Block B 2nd Flr', this)">Block B 2nd</span>
+          <span class="sector-pill" onclick="updateMySector('Hostel Mess', this)">Mess Hall</span>
+          <span class="sector-pill" onclick="updateMySector('Main Gate', this)">Main Gate</span>
+          <span class="sector-pill" onclick="updateMySector('Hostel Quad', this)">Quad</span>
+          <span class="sector-pill" onclick="updateMySector('Terrace', this)">Terrace</span>
+        </div>
+      </div>
+
+      <!-- SQUAD TACTICAL RADIO COMMS -->
+      <div class="card" id="radioCardBox" style="border-color: rgba(0,242,254,0.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-size:0.8rem; letter-spacing:1.5px; font-family:var(--font-mono); color:var(--accent-cyan);" id="radioTitleText">
+            📻 SQUAD RADIO (RUNNERS ONLY)
+          </div>
+          <span style="font-size:0.65rem; color:var(--accent-green); font-family:var(--font-mono); font-weight:bold;">ENCRYPTED CHANNEL</span>
+        </div>
+        <div class="feed-list" id="radioMsgList" style="max-height: 120px; margin-bottom:8px;">
+          <div style="font-size:0.75rem; color:var(--text-dim); font-style:italic;">Team channel open. Warn teammates of hunter sightings!</div>
+        </div>
+        <!-- Quick Tactical Comms Pills -->
+        <div class="sector-pills" id="quickRadioPills" style="margin-bottom:8px;">
+          <span class="sector-pill" onclick="sendQuickRadio('⚠️ Hunter spotted near my sector!')">⚠️ Hunter Spotted!</span>
+          <span class="sector-pill" onclick="sendQuickRadio('🏃 Moving to new hiding spot!')">🏃 Moving!</span>
+          <span class="sector-pill" onclick="sendQuickRadio('🛡️ Safe zone is clear!')">🛡️ Area Clear</span>
+          <span class="sector-pill" onclick="sendQuickRadio('🎯 Flank them now!')">🎯 Flank Now</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="radioInputText" class="input-field" placeholder="Whisper to team..." style="margin-bottom:0; font-size:0.85rem;" onkeydown="if(event.key==='Enter') sendRadioMsg()">
+          <button class="btn btn-cyan btn-sm" id="btnSendRadio" onclick="sendRadioMsg()" style="width:auto; padding:0 16px;">TRANSMIT</button>
+        </div>
+      </div>
+
+      <!-- LIVE COMMS & KILL FEED -->
+      <div class="card">
+        <div style="font-size:0.8rem; letter-spacing:1.5px; color:var(--text-dim); font-family:var(--font-mono); margin-bottom:8px;">
+          📡 LIVE FIELD INTEL
+        </div>
+        <div class="feed-list" id="killFeedList">
+          <!-- Feed items inserted dynamically -->
+        </div>
+      </div>
+
+      <!-- HOST IN-GAME COMMAND CONSOLE -->
+      <div id="hostInGameBar" class="card" style="display:none; border-color:var(--accent-amber);">
+        <div style="font-size:0.8rem; color:var(--accent-amber); font-family:var(--font-mono); margin-bottom:8px;">
+          👑 HOST / WARDEN REFEREE CONSOLE
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <input type="text" id="hostAlertInput" class="input-field" placeholder="Broadcast alert to all..." style="margin-bottom:0; font-size:0.85rem;">
+          <button class="btn btn-outline btn-sm" onclick="sendHostAlert()">SEND</button>
+        </div>
+        
+        <!-- Live Disputes -->
+        <div style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); margin-bottom:6px;">PENDING DISPUTES:</div>
+        <div id="hostDisputesList" style="margin-bottom:10px;">
+          <div style="font-size:0.75rem; color:var(--text-dim); font-style:italic;">No active disputes. Clean match!</div>
+        </div>
+
+        <!-- Direct Player Controls -->
+        <div style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); margin-bottom:6px;">WARDEN RUNNER OVERRIDE:</div>
+        <div class="feed-list" id="hostRunnersControlList" style="max-height:130px;">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== 4. DEBRIEF / GAME OVER VIEW ==================== -->
+    <div id="viewGameOver" style="display:none;">
+      <div class="card pin-hero-card" id="victoryHeroCard">
+        <div style="font-size:1.1rem; letter-spacing:3px; color:var(--accent-cyan); font-family:var(--font-mono); margin-bottom:6px;">
+          OPERATION CONCLUDED
+        </div>
+        <div id="victoryWinnerTitle" style="font-size:2.8rem; font-family:var(--font-mono); font-weight:900; color:#fff; margin:10px 0;">
+          VICTORY
+        </div>
+        <div id="victorySubtitle" style="font-size:0.95rem; color:var(--text-dim);">
+          Debriefing squad performance...
+        </div>
+      </div>
+
+      <!-- Post-Match MVP Highlights -->
+      <div class="card">
+        <div style="font-size:0.8rem; letter-spacing:1.5px; color:var(--accent-amber); font-family:var(--font-mono); margin-bottom:12px;">
+          🏅 MATCH HIGHLIGHTS
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:rgba(255,255,255,0.03); border-radius:10px;">
+            <div>
+              <div style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">TOP APEX PREDATOR:</div>
+              <div id="mvpHunterName" style="font-weight:bold; color:var(--accent-red); font-size:1.1rem;">--</div>
+            </div>
+            <div id="mvpHunterTags" class="badge badge-red">0 TAGS</div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:rgba(255,255,255,0.03); border-radius:10px;">
+            <div>
+              <div style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">SNEAKIEST SURVIVOR:</div>
+              <div id="mvpRunnerName" style="font-weight:bold; color:var(--accent-cyan); font-size:1.1rem;">--</div>
+            </div>
+            <div id="mvpRunnerStatus" class="badge badge-cyan">EVADED</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Host Reset Match Button -->
+      <div id="hostResetBox" style="display:none; margin-top:10px;">
+        <button class="btn btn-green" onclick="resetToLobby()">
+          🔄 PLAY AGAIN (RESET LOBBY)
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. Fullscreen Runner QR Modal -->
+  <div class="modal-overlay" id="runnerQrModal" style="display:none;" onclick="closeRunnerQrModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div style="font-size:0.8rem; color:var(--accent-cyan); font-family:var(--font-mono); letter-spacing:2px; margin-bottom:8px;">
+        RUNNER ELIMINATION CODE
+      </div>
+      <div id="runnerBigPinDisplay" style="font-size:3rem; font-family:var(--font-mono); font-weight:bold; color:#fff; letter-spacing:8px; margin-bottom:12px;">
+        ----
+      </div>
+      <div id="runnerQrCodeArea" style="display:inline-block; padding:16px; background:#fff; border-radius:16px; margin-bottom:16px;"></div>
+      <div style="font-size:0.8rem; color:var(--text-dim); margin-bottom:16px;">
+        Let the hunter scan this QR or read out your 4-digit code.
+      </div>
+      <button class="btn btn-outline" onclick="closeRunnerQrModal()">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- 2. Hunter Camera QR Scanner Modal -->
+  <div class="modal-overlay" id="cameraScannerModal" style="display:none;" onclick="closeCameraScanner()">
+    <div class="modal-content hunter-modal" onclick="event.stopPropagation()">
+      <div style="font-size:0.85rem; color:var(--accent-red); font-family:var(--font-mono); letter-spacing:2px; margin-bottom:12px;">
+        📷 POINT AT RUNNER'S QR CODE
+      </div>
+      <div id="qrScannerReader" style="width:100%; min-height:240px; border-radius:12px; overflow:hidden; background:#000;"></div>
+      <button class="btn btn-outline" onclick="closeCameraScanner()" style="margin-top:14px;">CANCEL SCAN</button>
+    </div>
+  </div>
+
+  <!-- 3. Runner Surrender Modal -->
+  <div class="modal-overlay" id="surrenderModal" style="display:none;" onclick="closeSurrenderModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div style="font-size:0.85rem; color:var(--accent-amber); font-family:var(--font-mono); margin-bottom:12px;">
+        CONFIRM CAPTURE
+      </div>
+      <div style="font-size:0.85rem; color:var(--text-dim); margin-bottom:14px;">
+        Select which hunter caught you:
+      </div>
+      <select id="surrenderHunterSelect" class="input-field" style="margin-bottom:16px;"></select>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-red" onclick="confirmSurrender()">I WAS CAUGHT</button>
+        <button class="btn btn-outline" onclick="closeSurrenderModal()">CANCEL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Big Infection Strobe Alert (Shown to runner when tagged) -->
+  <div id="infectedFlashOverlay" class="infected-flash-banner" style="display:none;">
+    <div style="font-size:4rem; margin-bottom:10px;">☣️</div>
+    <div class="infected-title">INFECTED!</div>
+    <div style="font-size:1.1rem; max-width:320px; line-height:1.5; margin-bottom:20px;">
+      You were tagged by <b id="infectorNameDisplay">Hunter</b>!<br>
+      Switching to Hunter protocol...
+    </div>
+    <button class="btn btn-outline" onclick="dismissInfectionBanner()" style="background:#000; border-color:#fff; color:#fff; width:auto; padding:12px 28px;">
+      JOIN THE HUNT 💀
+    </button>
+  </div>
+
+  <!-- 5. Hunter Claim Tag Modal (If runner refuses screen) -->
+  <div class="modal-overlay" id="claimTagModal" style="display:none;" onclick="closeClaimTagModal()">
+    <div class="modal-content hunter-modal" onclick="event.stopPropagation()">
+      <div style="font-size:0.85rem; color:var(--accent-red); font-family:var(--font-mono); letter-spacing:1px; margin-bottom:8px;">
+        🚩 FILE DIRECT TAG CLAIM
+      </div>
+      <div style="font-size:0.8rem; color:var(--text-dim); margin-bottom:12px;">
+        If a runner was tagged but hides their screen or runs, select them below:
+      </div>
+      <div class="feed-list" id="claimTagRunnerList" style="max-height:180px; margin-bottom:14px;"></div>
+      <button class="btn btn-outline" onclick="closeClaimTagModal()">CANCEL</button>
+    </div>
+  </div>
+
+  <!-- 6. Runner Incoming Tag Claim Alert Modal -->
+  <div class="modal-overlay" id="incomingClaimModal" style="display:none;">
+    <div class="modal-content" style="border-color:var(--accent-red); box-shadow:var(--shadow-glow-red);" onclick="event.stopPropagation()">
+      <div style="font-size:3rem; margin-bottom:6px;">⚠️</div>
+      <div style="font-size:1.2rem; font-weight:900; color:var(--accent-red); margin-bottom:6px;">
+        TAG CLAIMED ON YOU!
+      </div>
+      <div style="font-size:0.9rem; color:#fff; line-height:1.5; margin-bottom:14px;">
+        <b id="claimingHunterName" style="color:var(--accent-red);">Hunter</b> claims they caught you!<br>
+        Auto-confirming in <b id="claimCountdownSeconds" style="color:var(--accent-amber); font-size:1.3rem;">25</b>s if ignored!
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="btn btn-red" onclick="acceptTagClaim()">✓ CONFIRM I WAS TAGGED</button>
+        <button class="btn btn-outline" onclick="disputeTagClaim()">⚖️ DISPUTE (SUMMON WARDEN)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/sound.js"></script>
+  <script src="/static/js/qr-helper.js"></script>
+  <script src="/static/js/map-radar.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
